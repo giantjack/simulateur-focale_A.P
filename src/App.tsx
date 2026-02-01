@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import {
   Box,
   Flex,
@@ -37,45 +37,25 @@ const MIN_FOCAL = 7; // Permet d'atteindre ~18mm equiv sur capteur 1 pouce
 const MAX_FOCAL = 600;
 
 function App() {
-  const [focalLength, setFocalLength] = useState(18);
+  // L'équivalent FF est la source de vérité (évite les erreurs d'arrondi cumulées)
+  const [equivalentFF, setEquivalentFF] = useState(18);
   const [sensorKey, setSensorKey] = useState("Plein format (35mm)");
-  
-  // Garder trace de l'ancien crop factor pour calculer l'équivalent
-  const prevCropFactorRef = useRef(SENSORS["Plein format (35mm)"].cropFactor);
 
   const sensor = SENSORS[sensorKey];
   const cropFactor = sensor.cropFactor;
 
   // Focale minimale pour ce capteur (pour avoir zoom ×1 = 18mm equiv FF)
   const minFocalForSensor = useMemo(() => {
-    return Math.ceil(REFERENCE_FOCAL_FF / cropFactor);
+    return Math.round(REFERENCE_FOCAL_FF / cropFactor);
   }, [cropFactor]);
 
-  // Gestion du changement de capteur
-  const handleSensorChange = (newSensorKey: string) => {
-    const oldCropFactor = prevCropFactorRef.current;
-    const newCropFactor = SENSORS[newSensorKey].cropFactor;
-    
-    // Calculer l'équivalent FF actuel
-    const currentEquivalent = focalLength * oldCropFactor;
-    
-    // Calculer la nouvelle focale pour maintenir le même équivalent
-    let newFocalLength = Math.round(currentEquivalent / newCropFactor);
-    
-    // S'assurer qu'on ne descend pas en-dessous du minimum pour le nouveau capteur
-    const newMinFocal = Math.ceil(REFERENCE_FOCAL_FF / newCropFactor);
-    newFocalLength = Math.max(newFocalLength, newMinFocal);
-    
-    // S'assurer qu'on ne dépasse pas le maximum
-    newFocalLength = Math.min(newFocalLength, MAX_FOCAL);
-    
-    // Mettre à jour
-    prevCropFactorRef.current = newCropFactor;
-    setSensorKey(newSensorKey);
-    setFocalLength(newFocalLength);
-  };
+  // Focale réelle dérivée de l'équivalent FF
+  const focalLength = useMemo(() => {
+    const calculated = Math.round(equivalentFF / cropFactor);
+    return Math.max(calculated, minFocalForSensor);
+  }, [equivalentFF, cropFactor, minFocalForSensor]);
 
-  // Équivalent plein format
+  // Équivalent plein format (recalculé pour l'affichage, au cas où on a clampé)
   const equivalentFocalLength = Math.round(focalLength * cropFactor);
 
   // Angle de champ (diagonal) en degrés
@@ -83,11 +63,6 @@ function App() {
     const diagonal = Math.sqrt(sensor.width ** 2 + sensor.height ** 2);
     return 2 * Math.atan(diagonal / (2 * focalLength)) * (180 / Math.PI);
   }, [focalLength, sensor]);
-
-  // Angle de champ équivalent FF (pour comparaison)
-  const angleOfViewFF = useMemo(() => {
-    return 2 * Math.atan(DIAGONAL_FF / (2 * equivalentFocalLength)) * (180 / Math.PI);
-  }, [equivalentFocalLength]);
 
   // Calcul du zoom basé sur l'équivalent plein format
   // 18mm FF = zoom 1x (focale de prise de vue de l'image)
@@ -124,6 +99,19 @@ function App() {
     const focal = Math.round(Math.exp(minLog + (s / 100) * (maxLog - minLog)));
     // Ne pas descendre en-dessous du minimum pour ce capteur
     return Math.max(focal, minFocalForSensor);
+  };
+
+  // Quand le slider bouge, mettre à jour l'équivalent FF
+  const handleSliderChange = (sliderValue: number) => {
+    const newFocal = sliderToFocal(sliderValue);
+    const newEquivalent = newFocal * cropFactor;
+    // S'assurer que l'équivalent ne descend pas en-dessous de la référence
+    setEquivalentFF(Math.max(newEquivalent, REFERENCE_FOCAL_FF));
+  };
+
+  // Quand on clique sur un bouton de focale rapide
+  const handleQuickFocal = (focal: number) => {
+    setEquivalentFF(focal * cropFactor);
   };
 
   // Position du blocage sur le slider (zone grisée)
@@ -228,16 +216,6 @@ function App() {
               {/* Point de l'appareil */}
               <circle cx="20" cy="60" r="8" fill="#212E40" />
               
-              {/* Angle plein format (référence, gris clair) */}
-              {cropFactor > 1 && (
-                <path
-                  d={`M 20 60 L ${20 + 260 * Math.cos((-angleOfViewFF / 2) * Math.PI / 180)} ${60 - 260 * Math.sin((angleOfViewFF / 2) * Math.PI / 180)} L ${20 + 260 * Math.cos((angleOfViewFF / 2) * Math.PI / 180)} ${60 + 260 * Math.sin((angleOfViewFF / 2) * Math.PI / 180)} Z`}
-                  fill="#EFF7FB"
-                  stroke="#ccc"
-                  strokeWidth="1"
-                />
-              )}
-              
               {/* Angle actuel */}
               <path
                 d={`M 20 60 L ${20 + 260 * Math.cos((-angleOfView / 2) * Math.PI / 180)} ${60 - 260 * Math.sin((angleOfView / 2) * Math.PI / 180)} L ${20 + 260 * Math.cos((angleOfView / 2) * Math.PI / 180)} ${60 + 260 * Math.sin((angleOfView / 2) * Math.PI / 180)} Z`}
@@ -269,12 +247,6 @@ function App() {
                 {angleOfView.toFixed(1)}° (diagonal)
               </text>
             </svg>
-
-            {cropFactor > 1 && (
-              <Text fontSize="xs" color="#888" mt={2} textAlign="center">
-                Zone grise = angle équivalent plein format ({angleOfViewFF.toFixed(1)}°)
-              </Text>
-            )}
           </Box>
         </Box>
 
@@ -286,7 +258,7 @@ function App() {
               <Text fontWeight="medium" fontSize="sm" mb={2}>Taille du capteur</Text>
               <Select
                 value={sensorKey}
-                onChange={(e) => handleSensorChange(e.target.value)}
+                onChange={(e) => setSensorKey(e.target.value)}
                 borderColor="#212E40"
                 _hover={{ borderColor: "#FB9936" }}
                 _focus={{ borderColor: "#FB9936", boxShadow: "0 0 0 1px #FB9936" }}
@@ -323,7 +295,7 @@ function App() {
                 )}
                 <Slider
                   value={focalToSlider(focalLength)}
-                  onChange={(val) => setFocalLength(sliderToFocal(val))}
+                  onChange={handleSliderChange}
                   min={0}
                   max={100}
                   step={0.5}
@@ -379,7 +351,7 @@ function App() {
             {/* Tableau de référence rapide */}
             <Box bg="white" p={4} borderRadius="lg" boxShadow="md">
               <Text fontWeight="medium" fontSize="sm" mb={3} color="#212E40">
-                Équivalences pour ce capteur
+                Équivalences plein format pour ce capteur
               </Text>
               <Flex wrap="wrap" gap={2}>
                 {[9, 12, 18, 24, 35, 50, 85, 135].filter(f => f >= minFocalForSensor).map((f) => (
@@ -392,7 +364,7 @@ function App() {
                     borderRadius="md"
                     fontSize="xs"
                     cursor="pointer"
-                    onClick={() => setFocalLength(f)}
+                    onClick={() => handleQuickFocal(f)}
                     _hover={{ bg: f === focalLength ? "#e88a2e" : "#ddd" }}
                   >
                     {f}mm → {Math.round(f * cropFactor)}mm

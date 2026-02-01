@@ -29,6 +29,9 @@ const SAMPLE_IMAGE = "https://images.unsplash.com/photo-1506905925346-21bda4d32d
 // Diagonale capteur plein format
 const DIAGONAL_FF = Math.sqrt(36 * 36 + 24 * 24);
 
+// Focale de référence pour le zoom (grand-angle standard)
+const REFERENCE_FOCAL = 24;
+
 function App() {
   const [focalLength, setFocalLength] = useState(50);
   const [sensorKey, setSensorKey] = useState("Plein format (35mm)");
@@ -50,15 +53,20 @@ function App() {
     return 2 * Math.atan(DIAGONAL_FF / (2 * equivalentFocalLength)) * (180 / Math.PI);
   }, [equivalentFocalLength]);
 
-  // Pourcentage de crop pour l'affichage visuel
-  const cropPercentage = (1 / cropFactor) * 100;
+  // Calcul du zoom basé sur l'équivalent plein format
+  // 24mm FF = zoom 1x (référence grand-angle)
+  const zoomScale = useMemo(() => {
+    const scale = equivalentFocalLength / REFERENCE_FOCAL;
+    // Limiter le zoom max pour rester visuellement lisible
+    return Math.min(scale, 8);
+  }, [equivalentFocalLength]);
 
   // Type d'objectif selon l'équivalent FF
   const lensType = useMemo(() => {
     if (equivalentFocalLength < 20) return "Ultra grand-angle";
     if (equivalentFocalLength < 35) return "Grand-angle";
     if (equivalentFocalLength < 60) return "Standard";
-    if (equivalentFocalLength < 135) return "Portrait";
+    if (equivalentFocalLength < 90) return "Petit téléobjectif";
     if (equivalentFocalLength < 300) return "Téléobjectif";
     return "Super téléobjectif";
   }, [equivalentFocalLength]);
@@ -87,44 +95,37 @@ function App() {
       <Flex gap={6} direction={{ base: "column", lg: "row" }}>
         {/* Colonne gauche : Visualisations */}
         <Box flex="1">
-          {/* Photo avec cadrage */}
-          <Box position="relative" borderRadius="lg" overflow="hidden" boxShadow="lg" mb={4}>
+          {/* Photo avec zoom selon focale */}
+          <Box 
+            position="relative" 
+            borderRadius="lg" 
+            overflow="hidden" 
+            boxShadow="lg" 
+            mb={4}
+            height="300px"
+          >
             <Box
-              as="img"
-              src={SAMPLE_IMAGE}
-              alt="Paysage exemple"
               width="100%"
-              height="auto"
-              style={{ display: "block" }}
-            />
-            
-            {/* Overlay pour montrer le crop */}
-            {cropFactor > 1 && (
-              <>
-                {/* Zones sombres autour */}
-                <Box
-                  position="absolute"
-                  top={0}
-                  left={0}
-                  right={0}
-                  bottom={0}
-                  bg="rgba(0,0,0,0.5)"
-                  pointerEvents="none"
-                />
-                {/* Zone visible (crop) */}
-                <Box
-                  position="absolute"
-                  top="50%"
-                  left="50%"
-                  transform="translate(-50%, -50%)"
-                  width={`${cropPercentage}%`}
-                  height={`${cropPercentage}%`}
-                  border="2px solid #FB9936"
-                  boxShadow="0 0 0 9999px rgba(0,0,0,0.5)"
-                  pointerEvents="none"
-                />
-              </>
-            )}
+              height="100%"
+              overflow="hidden"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Box
+                as="img"
+                src={SAMPLE_IMAGE}
+                alt="Paysage exemple"
+                minWidth="100%"
+                minHeight="100%"
+                objectFit="cover"
+                style={{
+                  transform: `scale(${zoomScale})`,
+                  transformOrigin: "center center",
+                  transition: "transform 0.3s ease-out",
+                }}
+              />
+            </Box>
 
             {/* Badge capteur */}
             <Badge
@@ -152,6 +153,20 @@ function App() {
               py={1}
             >
               Équiv. {equivalentFocalLength}mm
+            </Badge>
+
+            {/* Indicateur de zoom */}
+            <Badge
+              position="absolute"
+              bottom={2}
+              right={2}
+              bg="rgba(33, 46, 64, 0.8)"
+              color="white"
+              fontSize="xs"
+              px={2}
+              py={1}
+            >
+              Zoom ×{zoomScale.toFixed(1)}
             </Badge>
           </Box>
 
@@ -287,7 +302,7 @@ function App() {
 
                 <HStack justify="space-between">
                   <Text color="#666" fontSize="sm">Type d'objectif :</Text>
-                  <Badge colorScheme="purple">{lensType}</Badge>
+                  <Badge bg="#212E40" color="white">{lensType}</Badge>
                 </HStack>
               </VStack>
             </Box>

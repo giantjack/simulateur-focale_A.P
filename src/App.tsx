@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Box,
   Flex,
@@ -29,11 +29,11 @@ const SAMPLE_IMAGE = "https://apprendre-la-photo.fr/wp-content/uploads/2026/02/p
 // Diagonale capteur plein format
 const DIAGONAL_FF = Math.sqrt(36 * 36 + 24 * 24);
 
-// Focale de référence = focale de prise de vue de l'image (18mm FF)
-const REFERENCE_FOCAL = 18;
+// Focale de référence = focale de prise de vue de l'image (18mm FF équivalent)
+const REFERENCE_FOCAL_FF = 18;
 
-// Focales min/max du slider
-const MIN_FOCAL = 18;
+// Focales min/max du slider (absolu)
+const MIN_FOCAL = 7; // Permet d'atteindre ~18mm equiv sur capteur 1 pouce
 const MAX_FOCAL = 600;
 
 function App() {
@@ -42,6 +42,18 @@ function App() {
 
   const sensor = SENSORS[sensorKey];
   const cropFactor = sensor.cropFactor;
+
+  // Focale minimale pour ce capteur (pour avoir zoom ×1 = 18mm equiv FF)
+  const minFocalForSensor = useMemo(() => {
+    return Math.ceil(REFERENCE_FOCAL_FF / cropFactor);
+  }, [cropFactor]);
+
+  // Quand on change de capteur, ajuster la focale si elle est en-dessous du minimum
+  useEffect(() => {
+    if (focalLength < minFocalForSensor) {
+      setFocalLength(minFocalForSensor);
+    }
+  }, [sensorKey, minFocalForSensor, focalLength]);
 
   // Équivalent plein format
   const equivalentFocalLength = Math.round(focalLength * cropFactor);
@@ -60,7 +72,7 @@ function App() {
   // Calcul du zoom basé sur l'équivalent plein format
   // 18mm FF = zoom 1x (focale de prise de vue de l'image)
   const zoomScale = useMemo(() => {
-    return equivalentFocalLength / REFERENCE_FOCAL;
+    return equivalentFocalLength / REFERENCE_FOCAL_FF;
   }, [equivalentFocalLength]);
 
   // Type d'objectif selon l'équivalent FF
@@ -89,8 +101,16 @@ function App() {
   const sliderToFocal = (s: number) => {
     const minLog = Math.log(MIN_FOCAL);
     const maxLog = Math.log(MAX_FOCAL);
-    return Math.round(Math.exp(minLog + (s / 100) * (maxLog - minLog)));
+    const focal = Math.round(Math.exp(minLog + (s / 100) * (maxLog - minLog)));
+    // Ne pas descendre en-dessous du minimum pour ce capteur
+    return Math.max(focal, minFocalForSensor);
   };
+
+  // Position du blocage sur le slider (zone grisée)
+  const blockedSliderPosition = focalToSlider(minFocalForSensor);
+
+  // Marques du slider - filtrer celles en-dessous du minimum absolu
+  const sliderMarks = [7, 9, 12, 18, 24, 35, 50, 85, 135, 200, 400].filter(f => f >= MIN_FOCAL);
 
   return (
     <Box>
@@ -265,7 +285,22 @@ function App() {
                 <Text fontWeight="medium" fontSize="sm">Longueur focale</Text>
                 <Badge colorScheme="blue" fontSize="md" px={3}>{focalLength}mm</Badge>
               </Flex>
-              <Box px={2} pt={2} pb={6}>
+              <Box px={2} pt={2} pb={6} position="relative">
+                {/* Zone grisée (focales impossibles pour ce capteur) */}
+                {blockedSliderPosition > 0 && (
+                  <Box
+                    position="absolute"
+                    left={0}
+                    top="50%"
+                    transform="translateY(-50%)"
+                    width={`${blockedSliderPosition}%`}
+                    height="8px"
+                    bg="#ccc"
+                    borderRadius="full"
+                    zIndex={0}
+                    opacity={0.7}
+                  />
+                )}
                 <Slider
                   value={focalToSlider(focalLength)}
                   onChange={(val) => setFocalLength(sliderToFocal(val))}
@@ -273,8 +308,13 @@ function App() {
                   max={100}
                   step={0.5}
                 >
-                  {[18, 24, 35, 50, 85, 135, 200, 400].map((f) => (
-                    <SliderMark key={f} value={focalToSlider(f)} {...labelStyles}>
+                  {sliderMarks.map((f) => (
+                    <SliderMark 
+                      key={f} 
+                      value={focalToSlider(f)} 
+                      {...labelStyles}
+                      color={f < minFocalForSensor ? "#aaa" : "inherit"}
+                    >
                       {f}
                     </SliderMark>
                   ))}
@@ -284,6 +324,11 @@ function App() {
                   <SliderThumb borderColor="#212E40" boxSize={5} />
                 </Slider>
               </Box>
+              {minFocalForSensor > MIN_FOCAL && (
+                <Text fontSize="xs" color="#888" mt={-4}>
+                  Minimum pour {sensorKey} : {minFocalForSensor}mm (≈ 18mm equiv.)
+                </Text>
+              )}
             </Box>
 
             {/* Infos calculées */}
@@ -322,7 +367,7 @@ function App() {
                 Équivalences pour ce capteur
               </Text>
               <Flex wrap="wrap" gap={2}>
-                {[18, 24, 35, 50, 85, 135].map((f) => (
+                {[9, 12, 18, 24, 35, 50, 85, 135].filter(f => f >= minFocalForSensor).map((f) => (
                   <Box
                     key={f}
                     bg={f === focalLength ? "#FB9936" : "#EFF7FB"}

@@ -26,9 +26,6 @@ const SENSORS: Record<string, { cropFactor: number; width: number; height: numbe
 // Image de paysage (prise à 18mm équiv. FF)
 const SAMPLE_IMAGE = "https://apprendre-la-photo.fr/wp-content/uploads/2026/02/paysage_apprendre-la-photo_laurent-breillat.jpg";
 
-// Diagonale capteur plein format
-const DIAGONAL_FF = Math.sqrt(36 * 36 + 24 * 24);
-
 // Focale de référence = focale de prise de vue de l'image (18mm FF équivalent)
 const REFERENCE_FOCAL_FF = 18;
 

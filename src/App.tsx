@@ -37,7 +37,7 @@ const MIN_FOCAL = 18;
 const MAX_FOCAL = 600;
 
 function App() {
-  const [focalLength, setFocalLength] = useState(50);
+  const [focalLength, setFocalLength] = useState(18);
   const [sensorKey, setSensorKey] = useState("Plein format (35mm)");
 
   const sensor = SENSORS[sensorKey];
@@ -60,9 +60,7 @@ function App() {
   // Calcul du zoom basé sur l'équivalent plein format
   // 18mm FF = zoom 1x (focale de prise de vue de l'image)
   const zoomScale = useMemo(() => {
-    const scale = equivalentFocalLength / REFERENCE_FOCAL;
-    // Limiter le zoom max pour rester visuellement lisible
-    return Math.min(scale, 10);
+    return equivalentFocalLength / REFERENCE_FOCAL;
   }, [equivalentFocalLength]);
 
   // Type d'objectif selon l'équivalent FF

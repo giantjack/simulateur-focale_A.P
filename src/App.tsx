@@ -23,11 +23,11 @@ const SENSORS: Record<string, { cropFactor: number; width: number; height: numbe
   "1 pouce": { cropFactor: 2.7, width: 13.2, height: 8.8 },
 };
 
-// Focales courantes
-const FOCAL_LENGTHS = [8, 12, 14, 16, 18, 20, 24, 28, 35, 50, 70, 85, 100, 135, 200, 300, 400, 600];
-
 // Image de paysage pour montrer le cadrage
 const SAMPLE_IMAGE = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80";
+
+// Diagonale capteur plein format
+const DIAGONAL_FF = Math.sqrt(36 * 36 + 24 * 24);
 
 function App() {
   const [focalLength, setFocalLength] = useState(50);
@@ -40,16 +40,14 @@ function App() {
   const equivalentFocalLength = Math.round(focalLength * cropFactor);
 
   // Angle de champ (diagonal) en degrés
-  const diagonalFF = Math.sqrt(36 * 36 + 24 * 24); // ~43.3mm
   const angleOfView = useMemo(() => {
-    const effectiveFocal = focalLength; // Focale réelle
     const diagonal = Math.sqrt(sensor.width ** 2 + sensor.height ** 2);
-    return 2 * Math.atan(diagonal / (2 * effectiveFocal)) * (180 / Math.PI);
+    return 2 * Math.atan(diagonal / (2 * focalLength)) * (180 / Math.PI);
   }, [focalLength, sensor]);
 
   // Angle de champ équivalent FF (pour comparaison)
   const angleOfViewFF = useMemo(() => {
-    return 2 * Math.atan(diagonalFF / (2 * equivalentFocalLength)) * (180 / Math.PI);
+    return 2 * Math.atan(DIAGONAL_FF / (2 * equivalentFocalLength)) * (180 / Math.PI);
   }, [equivalentFocalLength]);
 
   // Pourcentage de crop pour l'affichage visuel

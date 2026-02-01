@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   Box,
   Flex,
@@ -39,6 +39,9 @@ const MAX_FOCAL = 600;
 function App() {
   const [focalLength, setFocalLength] = useState(18);
   const [sensorKey, setSensorKey] = useState("Plein format (35mm)");
+  
+  // Garder trace de l'ancien crop factor pour calculer l'équivalent
+  const prevCropFactorRef = useRef(SENSORS["Plein format (35mm)"].cropFactor);
 
   const sensor = SENSORS[sensorKey];
   const cropFactor = sensor.cropFactor;
@@ -48,12 +51,29 @@ function App() {
     return Math.ceil(REFERENCE_FOCAL_FF / cropFactor);
   }, [cropFactor]);
 
-  // Quand on change de capteur, ajuster la focale si elle est en-dessous du minimum
-  useEffect(() => {
-    if (focalLength < minFocalForSensor) {
-      setFocalLength(minFocalForSensor);
-    }
-  }, [sensorKey, minFocalForSensor, focalLength]);
+  // Gestion du changement de capteur
+  const handleSensorChange = (newSensorKey: string) => {
+    const oldCropFactor = prevCropFactorRef.current;
+    const newCropFactor = SENSORS[newSensorKey].cropFactor;
+    
+    // Calculer l'équivalent FF actuel
+    const currentEquivalent = focalLength * oldCropFactor;
+    
+    // Calculer la nouvelle focale pour maintenir le même équivalent
+    let newFocalLength = Math.round(currentEquivalent / newCropFactor);
+    
+    // S'assurer qu'on ne descend pas en-dessous du minimum pour le nouveau capteur
+    const newMinFocal = Math.ceil(REFERENCE_FOCAL_FF / newCropFactor);
+    newFocalLength = Math.max(newFocalLength, newMinFocal);
+    
+    // S'assurer qu'on ne dépasse pas le maximum
+    newFocalLength = Math.min(newFocalLength, MAX_FOCAL);
+    
+    // Mettre à jour
+    prevCropFactorRef.current = newCropFactor;
+    setSensorKey(newSensorKey);
+    setFocalLength(newFocalLength);
+  };
 
   // Équivalent plein format
   const equivalentFocalLength = Math.round(focalLength * cropFactor);
@@ -266,7 +286,7 @@ function App() {
               <Text fontWeight="medium" fontSize="sm" mb={2}>Taille du capteur</Text>
               <Select
                 value={sensorKey}
-                onChange={(e) => setSensorKey(e.target.value)}
+                onChange={(e) => handleSensorChange(e.target.value)}
                 borderColor="#212E40"
                 _hover={{ borderColor: "#FB9936" }}
                 _focus={{ borderColor: "#FB9936", boxShadow: "0 0 0 1px #FB9936" }}
@@ -324,11 +344,6 @@ function App() {
                   <SliderThumb borderColor="#212E40" boxSize={5} />
                 </Slider>
               </Box>
-              {minFocalForSensor > MIN_FOCAL && (
-                <Text fontSize="xs" color="#888" mt={-4}>
-                  Minimum pour {sensorKey} : {minFocalForSensor}mm (≈ 18mm equiv.)
-                </Text>
-              )}
             </Box>
 
             {/* Infos calculées */}

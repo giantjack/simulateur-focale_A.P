@@ -23,14 +23,18 @@ const SENSORS: Record<string, { cropFactor: number; width: number; height: numbe
   "1 pouce": { cropFactor: 2.7, width: 13.2, height: 8.8 },
 };
 
-// Image de paysage pour montrer le cadrage
-const SAMPLE_IMAGE = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80";
+// Image de paysage (prise à 18mm équiv. FF)
+const SAMPLE_IMAGE = "https://apprendre-la-photo.fr/wp-content/uploads/2026/02/paysage_apprendre-la-photo_laurent-breillat.jpg";
 
 // Diagonale capteur plein format
 const DIAGONAL_FF = Math.sqrt(36 * 36 + 24 * 24);
 
-// Focale de référence pour le zoom (grand-angle standard)
-const REFERENCE_FOCAL = 24;
+// Focale de référence = focale de prise de vue de l'image (18mm FF)
+const REFERENCE_FOCAL = 18;
+
+// Focales min/max du slider
+const MIN_FOCAL = 18;
+const MAX_FOCAL = 600;
 
 function App() {
   const [focalLength, setFocalLength] = useState(50);
@@ -54,11 +58,11 @@ function App() {
   }, [equivalentFocalLength]);
 
   // Calcul du zoom basé sur l'équivalent plein format
-  // 24mm FF = zoom 1x (référence grand-angle)
+  // 18mm FF = zoom 1x (focale de prise de vue de l'image)
   const zoomScale = useMemo(() => {
     const scale = equivalentFocalLength / REFERENCE_FOCAL;
     // Limiter le zoom max pour rester visuellement lisible
-    return Math.min(scale, 8);
+    return Math.min(scale, 10);
   }, [equivalentFocalLength]);
 
   // Type d'objectif selon l'équivalent FF
@@ -79,14 +83,14 @@ function App() {
 
   // Fonction pour convertir focale en position slider (log scale)
   const focalToSlider = (f: number) => {
-    const minLog = Math.log(8);
-    const maxLog = Math.log(600);
+    const minLog = Math.log(MIN_FOCAL);
+    const maxLog = Math.log(MAX_FOCAL);
     return ((Math.log(f) - minLog) / (maxLog - minLog)) * 100;
   };
 
   const sliderToFocal = (s: number) => {
-    const minLog = Math.log(8);
-    const maxLog = Math.log(600);
+    const minLog = Math.log(MIN_FOCAL);
+    const maxLog = Math.log(MAX_FOCAL);
     return Math.round(Math.exp(minLog + (s / 100) * (maxLog - minLog)));
   };
 
@@ -95,18 +99,22 @@ function App() {
       <Flex gap={6} direction={{ base: "column", lg: "row" }}>
         {/* Colonne gauche : Visualisations */}
         <Box flex="1">
-          {/* Photo avec zoom selon focale */}
+          {/* Photo avec zoom selon focale - aspect ratio 3:2 */}
           <Box 
             position="relative" 
             borderRadius="lg" 
             overflow="hidden" 
             boxShadow="lg" 
             mb={4}
-            height="300px"
+            paddingBottom="66.67%"
+            bg="#212E40"
           >
             <Box
-              width="100%"
-              height="100%"
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
               overflow="hidden"
               display="flex"
               alignItems="center"
@@ -116,8 +124,8 @@ function App() {
                 as="img"
                 src={SAMPLE_IMAGE}
                 alt="Paysage exemple"
-                minWidth="100%"
-                minHeight="100%"
+                width="100%"
+                height="100%"
                 objectFit="cover"
                 style={{
                   transform: `scale(${zoomScale})`,
@@ -137,6 +145,7 @@ function App() {
               fontSize="xs"
               px={2}
               py={1}
+              zIndex={1}
             >
               {sensorKey}
             </Badge>
@@ -151,6 +160,7 @@ function App() {
               fontSize="sm"
               px={2}
               py={1}
+              zIndex={1}
             >
               Équiv. {equivalentFocalLength}mm
             </Badge>
@@ -165,6 +175,7 @@ function App() {
               fontSize="xs"
               px={2}
               py={1}
+              zIndex={1}
             >
               Zoom ×{zoomScale.toFixed(1)}
             </Badge>
@@ -264,7 +275,7 @@ function App() {
                   max={100}
                   step={0.5}
                 >
-                  {[8, 14, 24, 35, 50, 85, 135, 200, 400].map((f) => (
+                  {[18, 24, 35, 50, 85, 135, 200, 400].map((f) => (
                     <SliderMark key={f} value={focalToSlider(f)} {...labelStyles}>
                       {f}
                     </SliderMark>
@@ -313,7 +324,7 @@ function App() {
                 Équivalences pour ce capteur
               </Text>
               <Flex wrap="wrap" gap={2}>
-                {[14, 24, 35, 50, 85, 135].map((f) => (
+                {[18, 24, 35, 50, 85, 135].map((f) => (
                   <Box
                     key={f}
                     bg={f === focalLength ? "#FB9936" : "#EFF7FB"}

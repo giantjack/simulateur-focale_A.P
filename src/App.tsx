@@ -67,8 +67,8 @@ function App() {
   const [showAllSensors, setShowAllSensors] = useState(false);
   const [showFilmFormats, setShowFilmFormats] = useState(false);
 
-  // Construire la liste des capteurs disponibles
-  const availableSensors = useMemo(() => {
+  // Construire la liste des capteurs disponibles (triée)
+  const sortedSensorKeys = useMemo(() => {
     let sensors: Record<string, SensorInfo> = { ...DEFAULT_SENSORS };
     if (showAllSensors) {
       sensors = { ...EXTENDED_SENSORS, ...sensors };
@@ -77,11 +77,19 @@ function App() {
       sensors = { ...sensors, ...FILM_FORMATS };
     }
     // Trier par crop factor croissant (grands capteurs/pellicules en premier)
-    const sorted = Object.entries(sensors).sort((a, b) => a[1].cropFactor - b[1].cropFactor);
-    return Object.fromEntries(sorted);
+    return Object.entries(sensors)
+      .sort((a, b) => a[1].cropFactor - b[1].cropFactor)
+      .map(([key]) => key);
   }, [showAllSensors, showFilmFormats]);
 
-  const sensor = availableSensors[sensorKey] || DEFAULT_SENSORS["Plein format (35mm)"];
+  // Tous les capteurs disponibles (non triés, pour accès par clé)
+  const allSensors: Record<string, SensorInfo> = {
+    ...DEFAULT_SENSORS,
+    ...EXTENDED_SENSORS,
+    ...FILM_FORMATS,
+  };
+
+  const sensor = allSensors[sensorKey] || DEFAULT_SENSORS["Plein format (35mm)"];
   const cropFactor = sensor.cropFactor;
 
   // Focale minimale pour ce capteur (pour avoir zoom ×1 = 18mm equiv FF)
@@ -119,6 +127,14 @@ function App() {
     if (equivalentFocalLength < 300) return "Téléobjectif";
     return "Super téléobjectif";
   }, [equivalentFocalLength]);
+
+  // Ratio d'aspect du capteur (pour le crop de l'image)
+  const aspectRatio = useMemo(() => {
+    // Utiliser le plus grand côté comme largeur pour un affichage paysage
+    const w = Math.max(sensor.width, sensor.height);
+    const h = Math.min(sensor.width, sensor.height);
+    return h / w; // Pour paddingBottom en %
+  }, [sensor]);
 
   const labelStyles = {
     mt: "2",
@@ -165,15 +181,16 @@ function App() {
       <Flex gap={6} direction={{ base: "column", lg: "row" }}>
         {/* Colonne gauche : Visualisations */}
         <Box flex="1">
-          {/* Photo avec zoom selon focale - aspect ratio 3:2 */}
-          <Box 
-            position="relative" 
-            borderRadius="lg" 
-            overflow="hidden" 
-            boxShadow="lg" 
+          {/* Photo avec zoom selon focale - aspect ratio dynamique */}
+          <Box
+            position="relative"
+            borderRadius="lg"
+            overflow="hidden"
+            boxShadow="lg"
             mb={4}
-            paddingBottom="66.67%"
+            paddingBottom={`${aspectRatio * 100}%`}
             bg="#212E40"
+            transition="padding-bottom 0.3s ease"
           >
             <Box
               position="absolute"
@@ -303,7 +320,7 @@ function App() {
                 _hover={{ borderColor: "#FB9936" }}
                 _focus={{ borderColor: "#FB9936", boxShadow: "0 0 0 1px #FB9936" }}
               >
-                {Object.keys(availableSensors).map((key) => (
+                {sortedSensorKeys.map((key) => (
                   <option key={key} value={key}>
                     {key}
                   </option>

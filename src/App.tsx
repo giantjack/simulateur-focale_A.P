@@ -181,17 +181,19 @@ function App() {
       <Flex gap={6} direction={{ base: "column", lg: "row" }}>
         {/* Colonne gauche : Visualisations */}
         <Box flex="1">
-          {/* Photo avec zoom selon focale - aspect ratio dynamique */}
-          <Box
-            position="relative"
-            borderRadius="lg"
-            overflow="hidden"
-            boxShadow="lg"
-            mb={4}
-            paddingBottom={`${aspectRatio * 100}%`}
-            bg="#212E40"
-            transition="padding-bottom 0.3s ease"
-          >
+          {/* Photo avec zoom selon focale - aspect ratio dynamique (hauteur fixe) */}
+          <Flex justify="center" mb={4}>
+            <Box
+              position="relative"
+              borderRadius="lg"
+              overflow="hidden"
+              boxShadow="lg"
+              h={{ base: "250px", md: "350px" }}
+              w={`${(1 / aspectRatio) * 100}%`}
+              maxW="100%"
+              bg="#212E40"
+              transition="width 0.3s ease"
+            >
             <Box
               position="absolute"
               top={0}
@@ -262,7 +264,8 @@ function App() {
             >
               Zoom ×{zoomScale.toFixed(1)}
             </Badge>
-          </Box>
+            </Box>
+          </Flex>
 
           {/* Schéma angle de champ */}
           <Box bg="white" p={4} borderRadius="lg" boxShadow="md">

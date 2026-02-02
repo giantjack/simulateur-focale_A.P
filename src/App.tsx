@@ -128,9 +128,11 @@ function App() {
     return "Super téléobjectif";
   }, [equivalentFocalLength]);
 
-  // Ratio d'aspect du capteur (largeur / hauteur)
+  // Ratio d'aspect du capteur (toujours en paysage : plus grand côté / plus petit côté)
   const aspectRatio = useMemo(() => {
-    return sensor.width / sensor.height;
+    const w = Math.max(sensor.width, sensor.height);
+    const h = Math.min(sensor.width, sensor.height);
+    return w / h;
   }, [sensor]);
 
   const labelStyles = {
@@ -185,7 +187,7 @@ function App() {
               borderRadius="lg"
               overflow="hidden"
               boxShadow="lg"
-              h={{ base: "250px", md: "350px" }}
+              h={{ base: "280px", md: "400px" }}
               sx={{ aspectRatio: aspectRatio }}
               maxW="100%"
               bg="#212E40"

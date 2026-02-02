@@ -12,15 +12,42 @@ import {
   VStack,
   HStack,
   Badge,
+  Checkbox,
 } from "@chakra-ui/react";
 
-// Capteurs avec leur crop factor
-const SENSORS: Record<string, { cropFactor: number; width: number; height: number }> = {
+// Type pour les capteurs
+type SensorInfo = { cropFactor: number; width: number; height: number };
+
+// Capteurs par défaut (affichés toujours)
+const DEFAULT_SENSORS: Record<string, SensorInfo> = {
   "Plein format (35mm)": { cropFactor: 1, width: 36, height: 24 },
-  "APS-C (Canon)": { cropFactor: 1.6, width: 22.3, height: 14.9 },
-  "APS-C (Nikon/Sony)": { cropFactor: 1.5, width: 23.6, height: 15.6 },
+  "APS-C (Canon)": { cropFactor: 1.62, width: 22.2, height: 14.8 },
+  "APS-C (Sony/Nikon)": { cropFactor: 1.53, width: 23.6, height: 15.6 },
   "Micro 4/3": { cropFactor: 2, width: 17.3, height: 13 },
   "1 pouce": { cropFactor: 2.7, width: 13.2, height: 8.8 },
+};
+
+// Capteurs numériques étendus
+const EXTENDED_SENSORS: Record<string, SensorInfo> = {
+  "1/2.5\"": { cropFactor: 6.0, width: 5.76, height: 4.29 },
+  "1/2.3\"": { cropFactor: 5.64, width: 6.17, height: 4.55 },
+  "1/1.7\"": { cropFactor: 4.55, width: 7.6, height: 5.7 },
+  "2/3\"": { cropFactor: 4.5, width: 7.53, height: 5.7 },
+  "Half-frame": { cropFactor: 1.44, width: 18, height: 24 },
+  "APS-H": { cropFactor: 1.29, width: 27.9, height: 18.6 },
+  "GFX/X1D/645z": { cropFactor: 0.79, width: 43.8, height: 32.9 },
+};
+
+// Formats pellicule (moyen et grand format)
+const FILM_FORMATS: Record<string, SensorInfo> = {
+  "645": { cropFactor: 0.62, width: 56, height: 41.5 },
+  "6×6": { cropFactor: 0.55, width: 56, height: 56 },
+  "6×7": { cropFactor: 0.50, width: 56, height: 67 },
+  "6×8": { cropFactor: 0.45, width: 56, height: 77 },
+  "6×9": { cropFactor: 0.43, width: 56, height: 84 },
+  "4×5 (grand format)": { cropFactor: 0.27, width: 102, height: 127 },
+  "5×7 (grand format)": { cropFactor: 0.20, width: 127, height: 177 },
+  "8×10 (grand format)": { cropFactor: 0.13, width: 203.2, height: 254 },
 };
 
 // Image de paysage (prise à 18mm équiv. FF)
@@ -37,8 +64,24 @@ function App() {
   // L'équivalent FF est la source de vérité (évite les erreurs d'arrondi cumulées)
   const [equivalentFF, setEquivalentFF] = useState(18);
   const [sensorKey, setSensorKey] = useState("Plein format (35mm)");
+  const [showAllSensors, setShowAllSensors] = useState(false);
+  const [showFilmFormats, setShowFilmFormats] = useState(false);
 
-  const sensor = SENSORS[sensorKey];
+  // Construire la liste des capteurs disponibles
+  const availableSensors = useMemo(() => {
+    let sensors: Record<string, SensorInfo> = { ...DEFAULT_SENSORS };
+    if (showAllSensors) {
+      sensors = { ...EXTENDED_SENSORS, ...sensors };
+    }
+    if (showFilmFormats) {
+      sensors = { ...sensors, ...FILM_FORMATS };
+    }
+    // Trier par crop factor décroissant (petits capteurs en premier)
+    const sorted = Object.entries(sensors).sort((a, b) => b[1].cropFactor - a[1].cropFactor);
+    return Object.fromEntries(sorted);
+  }, [showAllSensors, showFilmFormats]);
+
+  const sensor = availableSensors[sensorKey] || DEFAULT_SENSORS["Plein format (35mm)"];
   const cropFactor = sensor.cropFactor;
 
   // Focale minimale pour ce capteur (pour avoir zoom ×1 = 18mm equiv FF)
@@ -260,12 +303,30 @@ function App() {
                 _hover={{ borderColor: "#FB9936" }}
                 _focus={{ borderColor: "#FB9936", boxShadow: "0 0 0 1px #FB9936" }}
               >
-                {Object.keys(SENSORS).map((key) => (
+                {Object.keys(availableSensors).map((key) => (
                   <option key={key} value={key}>
-                    {key} (×{SENSORS[key].cropFactor})
+                    {key} ({availableSensors[key].width} × {availableSensors[key].height} mm) ({availableSensors[key].cropFactor}x crop)
                   </option>
                 ))}
               </Select>
+              <VStack align="start" mt={2} spacing={1}>
+                <Checkbox
+                  size="sm"
+                  isChecked={showAllSensors}
+                  onChange={(e) => setShowAllSensors(e.target.checked)}
+                  colorScheme="orange"
+                >
+                  <Text fontSize="xs" color="gray.600">Afficher toutes les tailles de capteurs</Text>
+                </Checkbox>
+                <Checkbox
+                  size="sm"
+                  isChecked={showFilmFormats}
+                  onChange={(e) => setShowFilmFormats(e.target.checked)}
+                  colorScheme="orange"
+                >
+                  <Text fontSize="xs" color="gray.600">Afficher toutes les tailles de pellicules</Text>
+                </Checkbox>
+              </VStack>
             </Box>
 
             {/* Slider focale */}

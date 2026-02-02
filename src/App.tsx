@@ -76,8 +76,8 @@ function App() {
     if (showFilmFormats) {
       sensors = { ...sensors, ...FILM_FORMATS };
     }
-    // Trier par crop factor décroissant (petits capteurs en premier)
-    const sorted = Object.entries(sensors).sort((a, b) => b[1].cropFactor - a[1].cropFactor);
+    // Trier par crop factor croissant (grands capteurs/pellicules en premier)
+    const sorted = Object.entries(sensors).sort((a, b) => a[1].cropFactor - b[1].cropFactor);
     return Object.fromEntries(sorted);
   }, [showAllSensors, showFilmFormats]);
 
@@ -305,7 +305,7 @@ function App() {
               >
                 {Object.keys(availableSensors).map((key) => (
                   <option key={key} value={key}>
-                    {key} ({availableSensors[key].width} × {availableSensors[key].height} mm) ({availableSensors[key].cropFactor}x crop)
+                    {key}
                   </option>
                 ))}
               </Select>
